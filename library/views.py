@@ -1,10 +1,14 @@
+from datetime import date, timedelta
+from enum import IntEnum
+from operator import methodcaller
+from tkinter.tix import INTEGER
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .models import Author, Book, Member, Loan
 from .serializers import AuthorSerializer, BookSerializer, MemberSerializer, LoanSerializer
 from rest_framework.decorators import action
 from django.utils import timezone
-from .tasks import send_loan_notification
+from .tasks import check_overdue_loans, send_loan_notification
 
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()
@@ -44,6 +48,25 @@ class BookViewSet(viewsets.ModelViewSet):
         book.available_copies += 1
         book.save()
         return Response({'status': 'Book returned successfully.'}, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'])
+    def test_task(self, request):
+        check_overdue_loans()
+        return Response({'ok'}, status=200)
+
+    @action(detail=True, methods=['post'])
+    def extend_due_date(self, request, pk=None):
+        loan = Loan.Objects.filter(id=pk, due_date__gte=date.today())
+        if not loan:
+            return Response({'error': 'Active loan does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        additional_days = request.data.get('additional_days')
+        if not isinstance(additional_days, int):
+            return Response({'error': 'The additional_days is not a integer number.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        loan.due_date = loan.due_date + timedelta(days)
+
+
 
 class MemberViewSet(viewsets.ModelViewSet):
     queryset = Member.objects.all()

@@ -41,5 +41,16 @@ services:
       - web
       - redis
 
+  celery-beat:
+    build: .
+    command: celery -A core beat -l info
+    volumes:
+      - ./project/:/usr/src/app/
+    environment:
+      - DEBUG=1
+    depends_on:
+      - web
+      - redis
+
 volumes:
   postgres_data:
